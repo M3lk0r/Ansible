@@ -1,0 +1,58 @@
+- name: Instalar o Zabbix em servidores Windows
+  hosts: windows_servers
+  gather_facts: no
+  vars:
+    zabbix_installer_url: "https://cdn.zabbix.com/zabbix/binaries/stable/7.2/7.2.4/zabbix_agent-7.2.4-windows-amd64-openssl.msi"
+    zabbix_installer_path: "C:\\Temp\\zabbix_agent.msi"
+  tasks:
+    - name: Criar diretório temporário
+      win_file:
+        path: "C:\\Temp"
+        state: directory
+
+    - name: Baixar o instalador do Zabbix Agent
+      win_get_url:
+        url: "{{ zabbix_installer_url }}"
+        dest: "{{ zabbix_installer_path }}"
+        validate_certs: yes
+
+    - name: Instalar o Zabbix Agent
+      win_package:
+        path: "{{ zabbix_installer_path }}"
+        product_id: "{EXEMPLO-PRODUCT-ID}"
+        arguments: "/quiet"
+      register: install_result
+
+    - name: Verificar serviço do Zabbix Agent
+      win_service:
+        name: "Zabbix Agent"
+        state: started
+
+- name: Instalar o Zabbix em servidores Linux (Ubuntu 24.04 e Debian 12)
+  hosts: linux_servers
+  become: yes
+  gather_facts: yes
+  tasks:
+    - name: Adicionar repositório do Zabbix (para Ubuntu e Debian)
+      apt_repository:
+        repo: "deb http://repo.zabbix.com/zabbix/6.0/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} main"
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Atualizar cache do apt
+      apt:
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Instalar o agente do Zabbix
+      apt:
+        name: zabbix-agent
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Iniciar e habilitar o serviço do Zabbix Agent
+      service:
+        name: zabbix-agent
+        state: started
+        enabled: yes
+      when: ansible_os_family == "Debian"
